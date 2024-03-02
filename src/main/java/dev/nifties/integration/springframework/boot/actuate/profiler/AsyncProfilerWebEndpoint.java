@@ -1,4 +1,6 @@
-package dev.nifties.integration.boot.actuate.profiler;
+package dev.nifties.integration.springframework.boot.actuate.profiler;
+
+import dev.nifties.integration.springframework.boot.annotation.EnableAsyncProfiler;
 
 import one.profiler.AsyncProfiler;
 import org.apache.commons.logging.Log;
@@ -29,22 +31,35 @@ import java.util.stream.Stream;
 /**
  * <p>
  * Spring Actuator for invoking
- * <a href="https://github.com/async-profiler/async-profiler">Async Profiler</a> via web
- * endpoint.
+ * <a href="https://github.com/async-profiler/async-profiler">Async Profiler</a> via WEB endpoint.
  * </p>
  * <p>
- * Requires async-profiler dependency to be added to project, for Maven this would look like this:
+ * Pulls in async-profiler dependency transitively. For Maven can be added like this:
  * <pre>
  *     &lt;dependency&gt;
- *         &lt;groupId&gt;tools.profiler&lt;/groupId&gt;
- *         &lt;artifactId&gt;async-profiler&lt;/artifactId&gt;
- *         &lt;version&gt;3.0&lt;/version&gt;
+ *         &lt;groupId&gt;dev.nifties.integration&lt;/groupId&gt;
+ *         &lt;artifactId&gt;async-profiler-actuator&lt;/artifactId&gt;
+ *         &lt;version&gt;1.0.0&lt;/version&gt;
  *     &lt;/dependency&gt;
  * </pre>
  * </p>
  * <p>
- * Enable by activating "<i>profiler</i>" endpoint, for example, with following config in
- * {@code application.yaml}: <pre>{@code
+ * Enable by adding {@link EnableAsyncProfiler} annotation to
+ * your Spring context configuration:
+ *  <pre>{@code
+ *  import dev.nifties.integration.springframework.boot.annotation.EnableAsyncProfiler;
+ *
+ *  @Configuration
+ *  @EnableAsyncProfiler
+ *  public class ApplicationConfiguration {
+ *      ...
+ *  }
+ *  }</pre>
+ * </p>
+ * <p>
+ * Activate by exposing "<i>profiler</i>" endpoint, for example, with following config in
+ * {@code application.yaml}:
+ * <pre>{@code
  *   endpoints:
  *     web:
  *       exposure:
@@ -57,7 +72,7 @@ import java.util.stream.Stream;
  * Path variable and additional request parameters are translated into <a href=
  * "https://github.com/async-profiler/async-profiler/blob/v2.9/src/arguments.cpp#L52">
  * AsyncProfile execution arguments</a>. Currently <i>dump</i> and <i>stop</i> operations
- * will produce flame-graph html, all other operations will simply return output generated
+ * will produce flame-graph HTML, all other operations will simply return output generated
  * by AsyncProfiler.<br/>
  * Examples:
  * <ul>
@@ -75,20 +90,24 @@ import java.util.stream.Stream;
  * <ul>
  * <li>https://.../actuator/profiler?event=wall&amp;duration=10 - invoke wall profiling
  * for 10 seconds and download flame-graph immediately.</li>
+ * <li>https://.../actuator/profiler?event=wall&amp;duration=10&amp;total&amp;threads - invoke the same
+ * but with additional options - total, to produce output in total milliseconds rather than samples, threads, to
+ * include additional row with thread names in flame-graph.</li>
  * </ul>
+ * For full documentation on all available options, please check AsyncProfiler home-page. This class really just
+ * translates WEB request parameters into AsyncProfiler arguments.
  *
  * @author Andris Rauda
  * @since 1.0.0
  */
-// @ConditionalOnClass(AsyncProfiler.class)
 @RestControllerEndpoint(id = "profiler")
-public class AsyncProfilerEndpoint {
+public class AsyncProfilerWebEndpoint {
 
-	private static final Log log = LogFactory.getLog(AsyncProfilerEndpoint.class);
+	private static final Log log = LogFactory.getLog(AsyncProfilerWebEndpoint.class);
 
 	private static final String OPERATION_START = "start";
 
-	public AsyncProfilerEndpoint() {
+	public AsyncProfilerWebEndpoint() {
 		try {
 			log.info("AsyncProfilerEndpoint activated with " + AsyncProfiler.getInstance().getVersion());
 		}
@@ -130,7 +149,7 @@ public class AsyncProfilerEndpoint {
 			final String command = operation + ",file=" + file.getAbsolutePath();
 			log.info("command: " + command);
 			log.info(AsyncProfiler.getInstance().execute(command));
-			return new ResponseEntity<>(new AsyncProfilerEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
+			return new ResponseEntity<>(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
 		}
 		catch (IOException | RuntimeException ex) {
 			log.error("Failed to invoke AsyncProfiler " + operation, ex);
@@ -254,7 +273,7 @@ public class AsyncProfilerEndpoint {
 				Files.delete(getFile().toPath());
 			}
 			catch (IOException ex) {
-				AsyncProfilerEndpoint.TemporaryFileSystemResource.this.logger
+				AsyncProfilerWebEndpoint.TemporaryFileSystemResource.this.logger
 						.warn("Failed to delete temporary heap dump file '" + getFile() + "'", ex);
 			}
 		}
