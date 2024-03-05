@@ -212,7 +212,6 @@ public class AsyncProfilerWebEndpoint {
 
     // TODO extract common class from HeapDumpWebEndpoint
     private static final class TemporaryFileSystemResource extends FileSystemResource {
-
         private final Log logger = LogFactory.getLog(getClass());
 
         private TemporaryFileSystemResource(File file) {
@@ -238,19 +237,16 @@ public class AsyncProfilerWebEndpoint {
                 public int read(ByteBuffer dst) throws IOException {
                     return readableChannel.read(dst);
                 }
-
             };
         }
 
         @Override
         public InputStream getInputStream() throws IOException {
             return new FilterInputStream(super.getInputStream()) {
-
                 @Override
                 public void close() throws IOException {
                     closeThenDeleteFile(this.in);
                 }
-
             };
         }
 
@@ -267,7 +263,7 @@ public class AsyncProfilerWebEndpoint {
                 Files.delete(getFile().toPath());
             } catch (IOException ex) {
                 AsyncProfilerWebEndpoint.TemporaryFileSystemResource.this.logger
-                        .warn("Failed to delete temporary heap dump file '" + getFile() + "'", ex);
+                        .warn("Failed to delete temporary file '" + getFile() + "'", ex);
             }
         }
 
@@ -276,7 +272,5 @@ public class AsyncProfilerWebEndpoint {
             // Prevent zero-copy so we can delete the file on close
             return false;
         }
-
     }
-
 }
