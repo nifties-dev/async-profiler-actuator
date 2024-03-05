@@ -1,13 +1,11 @@
 package dev.nifties.integration.springframework.boot.actuate.profiler;
 
 import dev.nifties.integration.springframework.boot.annotation.EnableAsyncProfiler;
-
 import one.profiler.AsyncProfiler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.boot.actuate.endpoint.web.annotation.RestControllerEndpoint;
 import org.springframework.core.io.FileSystemResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,11 +13,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.context.request.WebRequest;
 
-import java.io.Closeable;
-import java.io.File;
-import java.io.FilterInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
@@ -130,35 +124,38 @@ public class AsyncProfilerWebEndpoint {
             result = AsyncProfiler.getInstance().execute(command);
             log.info(result);
             return ResponseEntity.ok(result);
-        } catch (IOException | RuntimeException ex) {
-            log.error("Failed to invoke AsyncProfiler " + operation, ex);
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        } catch (IOException | RuntimeException e) {
+            log.error("Failed to invoke AsyncProfiler " + operation, e);
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
         }
     }
 
-    @GetMapping("{operation:(?:dump|stop)}")
-    public ResponseEntity<Resource> collectFlameGraph(@PathVariable String operation) {
+    @GetMapping("{operation:dump|stop}")
+    public ResponseEntity<?> collectFlameGraph(@PathVariable String operation, WebRequest request) {
         if (log.isDebugEnabled()) {
             log.debug("operation: " + operation);
         }
         File file = null;
         try {
             file = createTempFile();
-            final String command = operation + ",file=" + file.getAbsolutePath();
+            String command = operation + ",file=" + file.getAbsolutePath();
+            if (request.getParameter("total") != null) {
+                command += ",total";
+            }
             log.info("command: " + command);
             log.info(AsyncProfiler.getInstance().execute(command));
             return new ResponseEntity<>(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
-        } catch (IOException | RuntimeException ex) {
-            log.error("Failed to invoke AsyncProfiler " + operation, ex);
+        } catch (IOException | RuntimeException e) {
+            log.error("Failed to invoke AsyncProfiler " + operation, e);
             if (file != null) {
                 file.delete();
             }
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @GetMapping
-    public ResponseEntity<Resource> executeAndCollectFlamegraph(
+    public ResponseEntity<?> executeAndCollectFlamegraph(
             @RequestParam(value = "duration", required = false, defaultValue = "5") long duration, WebRequest request) {
 
         try {
@@ -174,19 +171,20 @@ public class AsyncProfilerWebEndpoint {
                 log.info(AsyncProfiler.getInstance().execute(command));
             }
             Thread.sleep(durationMillis);
-            return collectFlameGraph("stop");
-        } catch (IOException | RuntimeException ex) {
-            log.error("Failed to invoke AsyncProfiler", ex);
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        } catch (InterruptedException ex) {
+            return collectFlameGraph("stop", request);
+        } catch (IOException | RuntimeException e) {
+            log.error("Failed to invoke AsyncProfiler", e);
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
         }
     }
 
     private static String getCommand(String operation, WebRequest request) {
         String parameters = request.getParameterMap().entrySet().stream()
                 .filter(e -> !"duration".equalsIgnoreCase(e.getKey()))
+                .filter(e -> !"total".equals(e.getKey()))
                 .map(e -> parseParameter(e.getKey(), e.getValue())).collect(Collectors.joining(","));
 
         if (OPERATION_START.equals(operation) && parameters.isEmpty()) {
