@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class AsyncProfilerConfiguration {
+
     @Bean
     @ConditionalOnWebApplication
     public AsyncProfilerWebEndpoint asyncProfilerWebEndpoint() {

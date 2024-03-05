@@ -46,7 +46,7 @@ import java.util.stream.Stream;
  * <p>
  * Enable by adding {@link EnableAsyncProfiler} annotation to
  * your Spring context configuration:
- *  <pre>{@code
+ * <pre>{@code
  *  import dev.nifties.integration.springframework.boot.annotation.EnableAsyncProfiler;
  *
  *  @Configuration
@@ -103,187 +103,180 @@ import java.util.stream.Stream;
 @RestControllerEndpoint(id = "profiler")
 public class AsyncProfilerWebEndpoint {
 
-	private static final Log log = LogFactory.getLog(AsyncProfilerWebEndpoint.class);
+    private static final Log log = LogFactory.getLog(AsyncProfilerWebEndpoint.class);
 
-	private static final String OPERATION_START = "start";
+    private static final String OPERATION_START = "start";
 
-	public AsyncProfilerWebEndpoint() {
-		try {
-			log.info("AsyncProfilerEndpoint activated with " + AsyncProfiler.getInstance().getVersion());
-		}
-		catch (RuntimeException ex) {
-			log.warn("AsyncProfilerEndpoint not available: " + ex.getMessage());
-		}
-	}
+    public AsyncProfilerWebEndpoint() {
+        try {
+            log.info("AsyncProfilerEndpoint activated with " + AsyncProfiler.getInstance().getVersion());
+        } catch (RuntimeException ex) {
+            log.warn("AsyncProfilerEndpoint not available: " + ex.getMessage());
+        }
+    }
 
-	@GetMapping("{operation:^(?!dump|stop).+}")
-	public ResponseEntity<String> executeCommand(@PathVariable String operation, WebRequest request) {
-		if (log.isDebugEnabled()) {
-			log.debug("operation: " + operation);
-			log.debug("parameters: " + request.getParameterMap());
-		}
+    @GetMapping("{operation:^(?!dump|stop).+}")
+    public ResponseEntity<String> executeCommand(@PathVariable String operation, WebRequest request) {
+        if (log.isDebugEnabled()) {
+            log.debug("operation: " + operation);
+            log.debug("parameters: " + request.getParameterMap());
+        }
 
-		final String command = getCommand(operation, request);
-		log.info("command: " + command);
+        final String command = getCommand(operation, request);
+        log.info("command: " + command);
 
-		final String result;
-		try {
-			result = AsyncProfiler.getInstance().execute(command);
-			log.info(result);
-			return ResponseEntity.ok(result);
-		}
-		catch (IOException | RuntimeException ex) {
-			log.error("Failed to invoke AsyncProfiler " + operation, ex);
-			return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-		}
-	}
+        final String result;
+        try {
+            result = AsyncProfiler.getInstance().execute(command);
+            log.info(result);
+            return ResponseEntity.ok(result);
+        } catch (IOException | RuntimeException ex) {
+            log.error("Failed to invoke AsyncProfiler " + operation, ex);
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+    }
 
-	@GetMapping("{operation:(?:dump|stop)}")
-	public ResponseEntity<Resource> collectFlameGraph(@PathVariable String operation) {
-		if (log.isDebugEnabled()) {
-			log.debug("operation: " + operation);
-		}
-		File file = null;
-		try {
-			file = createTempFile();
-			final String command = operation + ",file=" + file.getAbsolutePath();
-			log.info("command: " + command);
-			log.info(AsyncProfiler.getInstance().execute(command));
-			return new ResponseEntity<>(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
-		}
-		catch (IOException | RuntimeException ex) {
-			log.error("Failed to invoke AsyncProfiler " + operation, ex);
-			if (file != null) {
-				file.delete();
-			}
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-	}
+    @GetMapping("{operation:(?:dump|stop)}")
+    public ResponseEntity<Resource> collectFlameGraph(@PathVariable String operation) {
+        if (log.isDebugEnabled()) {
+            log.debug("operation: " + operation);
+        }
+        File file = null;
+        try {
+            file = createTempFile();
+            final String command = operation + ",file=" + file.getAbsolutePath();
+            log.info("command: " + command);
+            log.info(AsyncProfiler.getInstance().execute(command));
+            return new ResponseEntity<>(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
+        } catch (IOException | RuntimeException ex) {
+            log.error("Failed to invoke AsyncProfiler " + operation, ex);
+            if (file != null) {
+                file.delete();
+            }
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 
-	@GetMapping
-	public ResponseEntity<Resource> executeAndCollectFlamegraph(
-			@RequestParam(value = "duration", required = false, defaultValue = "5") long duration, WebRequest request) {
+    @GetMapping
+    public ResponseEntity<Resource> executeAndCollectFlamegraph(
+            @RequestParam(value = "duration", required = false, defaultValue = "5") long duration, WebRequest request) {
 
-		try {
-			final long durationMillis = duration * 1000L;
-			if (log.isDebugEnabled()) {
-				log.debug("parameters: " + request.getParameterMap());
-			}
+        try {
+            final long durationMillis = duration * 1000L;
+            if (log.isDebugEnabled()) {
+                log.debug("parameters: " + request.getParameterMap());
+            }
 
-			final String command = getCommand("start", request);
+            final String command = getCommand("start", request);
 
-			if (log.isInfoEnabled()) {
-				log.info("duration: " + durationMillis + ", command: " + command);
-				log.info(AsyncProfiler.getInstance().execute(command));
-			}
-			Thread.sleep(durationMillis);
-			return collectFlameGraph("stop");
-		}
-		catch (IOException | RuntimeException ex) {
-			log.error("Failed to invoke AsyncProfiler", ex);
-			return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-		}
-		catch (InterruptedException ex) {
-			Thread.currentThread().interrupt();
-			return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
-		}
-	}
+            if (log.isInfoEnabled()) {
+                log.info("duration: " + durationMillis + ", command: " + command);
+                log.info(AsyncProfiler.getInstance().execute(command));
+            }
+            Thread.sleep(durationMillis);
+            return collectFlameGraph("stop");
+        } catch (IOException | RuntimeException ex) {
+            log.error("Failed to invoke AsyncProfiler", ex);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            return new ResponseEntity<>(HttpStatus.SERVICE_UNAVAILABLE);
+        }
+    }
 
-	private static String getCommand(String operation, WebRequest request) {
-		String parameters = request.getParameterMap().entrySet().stream()
-				.filter(e -> !"duration".equalsIgnoreCase(e.getKey()))
-				.map(e -> parseParameter(e.getKey(), e.getValue())).collect(Collectors.joining(","));
+    private static String getCommand(String operation, WebRequest request) {
+        String parameters = request.getParameterMap().entrySet().stream()
+                .filter(e -> !"duration".equalsIgnoreCase(e.getKey()))
+                .map(e -> parseParameter(e.getKey(), e.getValue())).collect(Collectors.joining(","));
 
-		if (OPERATION_START.equals(operation) && parameters.isEmpty()) {
-			parameters = "event=cpu";
-		}
-		return operation + "," + parameters;
-	}
+        if (OPERATION_START.equals(operation) && parameters.isEmpty()) {
+            parameters = "event=cpu";
+        }
+        return operation + "," + parameters;
+    }
 
-	private static String parseParameter(String key, String[] values) {
-		if (values == null || values.length == 0
-				|| (values.length == 1 && (values[0] == null || values[0].isEmpty()))) {
-			return key;
-		}
-		return Stream.of(values).map(v -> key + "=" + v).collect(Collectors.joining(","));
-	}
+    private static String parseParameter(String key, String[] values) {
+        if (values == null || values.length == 0
+                || (values.length == 1 && (values[0] == null || values[0].isEmpty()))) {
+            return key;
+        }
+        return Stream.of(values).map(v -> key + "=" + v).collect(Collectors.joining(","));
+    }
 
-	private File createTempFile() throws IOException {
-		String date = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm").format(LocalDateTime.now());
-		File file = File.createTempFile("async-profiler-" + date, ".html");
-		file.delete();
-		return file;
-	}
+    private File createTempFile() throws IOException {
+        String date = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm").format(LocalDateTime.now());
+        File file = File.createTempFile("async-profiler-" + date, ".html");
+        file.delete();
+        return file;
+    }
 
-	// TODO extract common class from HeapDumpWebEndpoint
-	private static final class TemporaryFileSystemResource extends FileSystemResource {
+    // TODO extract common class from HeapDumpWebEndpoint
+    private static final class TemporaryFileSystemResource extends FileSystemResource {
 
-		private final Log logger = LogFactory.getLog(getClass());
+        private final Log logger = LogFactory.getLog(getClass());
 
-		private TemporaryFileSystemResource(File file) {
-			super(file);
-		}
+        private TemporaryFileSystemResource(File file) {
+            super(file);
+        }
 
-		@Override
-		public ReadableByteChannel readableChannel() throws IOException {
-			ReadableByteChannel readableChannel = super.readableChannel();
-			return new ReadableByteChannel() {
+        @Override
+        public ReadableByteChannel readableChannel() throws IOException {
+            ReadableByteChannel readableChannel = super.readableChannel();
+            return new ReadableByteChannel() {
 
-				@Override
-				public boolean isOpen() {
-					return readableChannel.isOpen();
-				}
+                @Override
+                public boolean isOpen() {
+                    return readableChannel.isOpen();
+                }
 
-				@Override
-				public void close() throws IOException {
-					closeThenDeleteFile(readableChannel);
-				}
+                @Override
+                public void close() throws IOException {
+                    closeThenDeleteFile(readableChannel);
+                }
 
-				@Override
-				public int read(ByteBuffer dst) throws IOException {
-					return readableChannel.read(dst);
-				}
+                @Override
+                public int read(ByteBuffer dst) throws IOException {
+                    return readableChannel.read(dst);
+                }
 
-			};
-		}
+            };
+        }
 
-		@Override
-		public InputStream getInputStream() throws IOException {
-			return new FilterInputStream(super.getInputStream()) {
+        @Override
+        public InputStream getInputStream() throws IOException {
+            return new FilterInputStream(super.getInputStream()) {
 
-				@Override
-				public void close() throws IOException {
-					closeThenDeleteFile(this.in);
-				}
+                @Override
+                public void close() throws IOException {
+                    closeThenDeleteFile(this.in);
+                }
 
-			};
-		}
+            };
+        }
 
-		private void closeThenDeleteFile(Closeable closeable) throws IOException {
-			try {
-				closeable.close();
-			}
-			finally {
-				deleteFile();
-			}
-		}
+        private void closeThenDeleteFile(Closeable closeable) throws IOException {
+            try {
+                closeable.close();
+            } finally {
+                deleteFile();
+            }
+        }
 
-		private void deleteFile() {
-			try {
-				Files.delete(getFile().toPath());
-			}
-			catch (IOException ex) {
-				AsyncProfilerWebEndpoint.TemporaryFileSystemResource.this.logger
-						.warn("Failed to delete temporary heap dump file '" + getFile() + "'", ex);
-			}
-		}
+        private void deleteFile() {
+            try {
+                Files.delete(getFile().toPath());
+            } catch (IOException ex) {
+                AsyncProfilerWebEndpoint.TemporaryFileSystemResource.this.logger
+                        .warn("Failed to delete temporary heap dump file '" + getFile() + "'", ex);
+            }
+        }
 
-		@Override
-		public boolean isFile() {
-			// Prevent zero-copy so we can delete the file on close
-			return false;
-		}
+        @Override
+        public boolean isFile() {
+            // Prevent zero-copy so we can delete the file on close
+            return false;
+        }
 
-	}
+    }
 
 }
