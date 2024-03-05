@@ -4,6 +4,10 @@
 /build/
 /build/classes/java/main/
 
+# Files produced during release on GitHub
+/settings.xml
+/toolchains.xml
+
 # Compiled class file
 *.class
 

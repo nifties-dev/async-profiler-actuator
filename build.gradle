@@ -1,5 +1,7 @@
 plugins {
     id 'java-library'
+    id 'net.researchgate.release' version '3.0.2'
+    id 'maven-publish'
 }
 
 group 'dev.nifties.integration'
@@ -13,6 +15,24 @@ dependencies {
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+    repositories {
+        maven {
+            name = "GitHubPackagesRelease"
+            url = "https://maven.pkg.github.com/nifties-dev/release"
+            credentials {
+                username = System.getenv("GITHUB_ACTOR")
+                password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
 }
 
 repositories {
@@ -31,4 +51,10 @@ compileJava {
 
 test {
     useJUnitPlatform()
+}
+
+release {
+    git {
+        requireBranch.set('')
+    }
 }
