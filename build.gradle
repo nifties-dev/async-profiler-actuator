@@ -5,7 +5,7 @@ plugins {
 }
 
 group 'dev.nifties.integration'
-version '0.1.0-SNAPSHOT'
+version '0.1.0-alfa'
 
 dependencies {
     implementation 'tools.profiler:async-profiler:3.0'
