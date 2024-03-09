@@ -101,12 +101,10 @@ public class AsyncProfilerWebEndpoint {
 
     private static final String OPERATION_START = "start";
 
-    public AsyncProfilerWebEndpoint() {
-        try {
-            log.info("AsyncProfilerEndpoint activated with " + AsyncProfiler.getInstance().getVersion());
-        } catch (RuntimeException ex) {
-            log.warn("AsyncProfilerEndpoint not available: " + ex.getMessage());
-        }
+    private final AsyncProfiler asyncProfiler;
+
+    public AsyncProfilerWebEndpoint(final AsyncProfiler asyncProfiler) {
+        this.asyncProfiler = asyncProfiler;
     }
 
     @GetMapping("{operation:^(?!dump|stop).+}")
@@ -121,7 +119,7 @@ public class AsyncProfilerWebEndpoint {
 
         final String result;
         try {
-            result = AsyncProfiler.getInstance().execute(command);
+            result = asyncProfiler.execute(command);
             log.info(result);
             return ResponseEntity.ok(result);
         } catch (IOException | RuntimeException e) {
@@ -143,7 +141,7 @@ public class AsyncProfilerWebEndpoint {
                 command += ",total";
             }
             log.info("command: " + command);
-            log.info(AsyncProfiler.getInstance().execute(command));
+            log.info(asyncProfiler.execute(command));
             return new ResponseEntity<>(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
         } catch (IOException | RuntimeException e) {
             log.error("Failed to invoke AsyncProfiler " + operation, e);
@@ -168,7 +166,7 @@ public class AsyncProfilerWebEndpoint {
 
             if (log.isInfoEnabled()) {
                 log.info("duration: " + durationMillis + ", command: " + command);
-                log.info(AsyncProfiler.getInstance().execute(command));
+                log.info(asyncProfiler.execute(command));
             }
             Thread.sleep(durationMillis);
             return collectFlameGraph("stop", request);
