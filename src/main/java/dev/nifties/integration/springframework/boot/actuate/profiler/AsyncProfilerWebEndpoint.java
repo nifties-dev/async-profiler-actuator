@@ -19,6 +19,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -136,10 +137,11 @@ public class AsyncProfilerWebEndpoint {
         File file = null;
         try {
             file = createTempFile();
-            String command = operation + ",file=" + file.getAbsolutePath();
+            String command = operation;
             if (request.getParameter("total") != null) {
                 command += ",total";
             }
+            command += ",file=" + file.getAbsolutePath();
             log.info("command: " + command);
             log.info(asyncProfiler.execute(command));
             return new ResponseEntity<>(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
@@ -180,6 +182,7 @@ public class AsyncProfilerWebEndpoint {
     }
 
     private static String getCommand(String operation, WebRequest request) {
+        Objects.requireNonNull(operation);
         String parameters = request.getParameterMap().entrySet().stream()
                 .filter(e -> !"duration".equalsIgnoreCase(e.getKey()))
                 .filter(e -> !"total".equals(e.getKey()))
@@ -188,7 +191,7 @@ public class AsyncProfilerWebEndpoint {
         if (OPERATION_START.equals(operation) && parameters.isEmpty()) {
             parameters = "event=cpu";
         }
-        return operation + "," + parameters;
+        return parameters.isEmpty() ? operation : String.join(",", operation, parameters);
     }
 
     private static String parseParameter(String key, String[] values) {
