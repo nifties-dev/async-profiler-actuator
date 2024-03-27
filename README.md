@@ -1,4 +1,6 @@
 # async-profiler-actuator
+![GitHub Release](https://img.shields.io/github/v/tag/nifties-dev/async-profiler-actuator)
+
 ## Introdution
 - [AsyncProfiler](https://github.com/async-profiler/async-profiler) is a proven tool for troubleshooting Java
   applications in variety of situations.
