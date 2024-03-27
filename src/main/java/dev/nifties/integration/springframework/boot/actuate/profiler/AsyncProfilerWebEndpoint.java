@@ -125,7 +125,7 @@ public class AsyncProfilerWebEndpoint {
             return ResponseEntity.ok(result);
         } catch (IOException | RuntimeException e) {
             log.error("Failed to invoke AsyncProfiler " + operation, e);
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
@@ -144,13 +144,13 @@ public class AsyncProfilerWebEndpoint {
             command += ",file=" + file.getAbsolutePath();
             log.info("command: " + command);
             log.info(asyncProfiler.execute(command));
-            return new ResponseEntity<>(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file), HttpStatus.OK);
+            return ResponseEntity.ok().body(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file));
         } catch (IOException | RuntimeException e) {
             log.error("Failed to invoke AsyncProfiler " + operation, e);
             if (file != null) {
                 file.delete();
             }
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.internalServerError().body(e.getMessage());
         }
     }
 
@@ -174,10 +174,10 @@ public class AsyncProfilerWebEndpoint {
             return collectFlameGraph("stop", request);
         } catch (IOException | RuntimeException e) {
             log.error("Failed to invoke AsyncProfiler", e);
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
+            return ResponseEntity.internalServerError().body(e.getMessage());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.SERVICE_UNAVAILABLE);
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE.value()).body(e.getMessage());
         }
     }
 
