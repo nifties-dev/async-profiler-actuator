@@ -5,7 +5,6 @@ import one.profiler.AsyncProfiler;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.boot.actuate.endpoint.web.annotation.RestControllerEndpoint;
-import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,9 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.context.request.WebRequest;
 
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
@@ -144,7 +140,7 @@ public class AsyncProfilerWebEndpoint {
             command += ",file=" + file.getAbsolutePath();
             log.info("command: " + command);
             log.info(asyncProfiler.execute(command));
-            return ResponseEntity.ok().body(new AsyncProfilerWebEndpoint.TemporaryFileSystemResource(file));
+            return ResponseEntity.ok().body(new TemporaryFileSystemResource(file));
         } catch (IOException | RuntimeException e) {
             log.error("Failed to invoke AsyncProfiler " + operation, e);
             if (file != null) {
@@ -207,69 +203,5 @@ public class AsyncProfilerWebEndpoint {
         File file = File.createTempFile("async-profiler-" + date, ".html");
         file.delete();
         return file;
-    }
-
-    // TODO extract common class from HeapDumpWebEndpoint
-    private static final class TemporaryFileSystemResource extends FileSystemResource {
-        private final Log logger = LogFactory.getLog(getClass());
-
-        private TemporaryFileSystemResource(File file) {
-            super(file);
-        }
-
-        @Override
-        public ReadableByteChannel readableChannel() throws IOException {
-            ReadableByteChannel readableChannel = super.readableChannel();
-            return new ReadableByteChannel() {
-
-                @Override
-                public boolean isOpen() {
-                    return readableChannel.isOpen();
-                }
-
-                @Override
-                public void close() throws IOException {
-                    closeThenDeleteFile(readableChannel);
-                }
-
-                @Override
-                public int read(ByteBuffer dst) throws IOException {
-                    return readableChannel.read(dst);
-                }
-            };
-        }
-
-        @Override
-        public InputStream getInputStream() throws IOException {
-            return new FilterInputStream(super.getInputStream()) {
-                @Override
-                public void close() throws IOException {
-                    closeThenDeleteFile(this.in);
-                }
-            };
-        }
-
-        private void closeThenDeleteFile(Closeable closeable) throws IOException {
-            try {
-                closeable.close();
-            } finally {
-                deleteFile();
-            }
-        }
-
-        private void deleteFile() {
-            try {
-                Files.delete(getFile().toPath());
-            } catch (IOException ex) {
-                AsyncProfilerWebEndpoint.TemporaryFileSystemResource.this.logger
-                        .warn("Failed to delete temporary file '" + getFile() + "'", ex);
-            }
-        }
-
-        @Override
-        public boolean isFile() {
-            // Prevent zero-copy so we can delete the file on close
-            return false;
-        }
     }
 }
