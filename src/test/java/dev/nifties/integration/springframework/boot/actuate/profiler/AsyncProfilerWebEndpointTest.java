@@ -5,6 +5,7 @@ import org.junit.jupiter.api.*;
 import org.mockito.*;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.context.request.WebRequest;
 
@@ -59,32 +60,50 @@ public class AsyncProfilerWebEndpointTest {
                 () -> asyncProfilerWebEndpoint.executeCommand(null, request));
 
         // dump
-        ResponseEntity<?> responseEntity = asyncProfilerWebEndpoint.collectFlameGraph("dump", request);
+        ResponseEntity<?> responseEntity = asyncProfilerWebEndpoint.collectFlameGraph("dump", null, request);
         assertNotNull(responseEntity);
         assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertEquals(MediaType.TEXT_HTML, responseEntity.getHeaders().getContentType());
         assertInstanceOf(Resource.class, responseEntity.getBody());
         Resource resource = (Resource)responseEntity.getBody();
+        assertTrue(resource.getFile().getName().endsWith(".html"));
         Mockito.verify(asyncProfiler).execute("dump,file=" + resource.getFile().getAbsolutePath());
 
         // stop
         Mockito.reset(asyncProfiler, request);
-        responseEntity = asyncProfilerWebEndpoint.collectFlameGraph("stop", request);
+        responseEntity = asyncProfilerWebEndpoint.collectFlameGraph("stop", null, request);
         assertNotNull(responseEntity);
         assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertEquals(MediaType.TEXT_HTML, responseEntity.getHeaders().getContentType());
         assertInstanceOf(Resource.class, responseEntity.getBody());
         resource = (Resource)responseEntity.getBody();
+        assertTrue(resource.getFile().getName().endsWith(".html"));
         Mockito.verify(asyncProfiler).execute("stop,file=" + resource.getFile().getAbsolutePath());
 
         // stop?total
         Mockito.reset(asyncProfiler, request);
         Mockito.when(request.getParameter("total")).thenReturn("");
 
-        responseEntity = asyncProfilerWebEndpoint.collectFlameGraph("stop", request);
+        responseEntity = asyncProfilerWebEndpoint.collectFlameGraph("stop", null, request);
         assertNotNull(responseEntity);
         assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertEquals(MediaType.TEXT_HTML, responseEntity.getHeaders().getContentType());
         assertInstanceOf(Resource.class, responseEntity.getBody());
         resource = (Resource)responseEntity.getBody();
+        assertTrue(resource.getFile().getName().endsWith(".html"));
         Mockito.verify(asyncProfiler).execute("stop,total,file=" + resource.getFile().getAbsolutePath());
+
+        // stop?file=.JFR
+        // stop
+        Mockito.reset(asyncProfiler, request);
+        responseEntity = asyncProfilerWebEndpoint.collectFlameGraph("stop", ".JFR", request);
+        assertNotNull(responseEntity);
+        assertEquals(HttpStatus.OK, responseEntity.getStatusCode());
+        assertEquals(MediaType.APPLICATION_OCTET_STREAM, responseEntity.getHeaders().getContentType());
+        assertInstanceOf(Resource.class, responseEntity.getBody());
+        resource = (Resource)responseEntity.getBody();
+        assertTrue(resource.getFile().getName().endsWith(".jfr"));
+        Mockito.verify(asyncProfiler).execute("stop,file=" + resource.getFile().getAbsolutePath());
     }
 
     @Test
@@ -96,7 +115,7 @@ public class AsyncProfilerWebEndpointTest {
         // duration=1
         Mockito.reset(asyncProfiler, request);
         long startTime = System.currentTimeMillis();
-        ResponseEntity<?> responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(1L, request);
+        ResponseEntity<?> responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(1L, null, request);
         long elapsedMillis = System.currentTimeMillis() - startTime;
         assertTrue(elapsedMillis >= 1_000L,
                 "Expected elapsedMillis to be at least 1 sec, but was " + elapsedMillis + " ms");
@@ -113,7 +132,7 @@ public class AsyncProfilerWebEndpointTest {
         Mockito.when(request.getParameterMap()).thenReturn(buildParameterMap("event", "wall"));
 
         startTime = System.currentTimeMillis();
-        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, request);
+        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, null, request);
         elapsedMillis = System.currentTimeMillis() - startTime;
         assertTrue(elapsedMillis < 100L,
                 "Expected elapsedMillis to be less then 100 ms, but was " + elapsedMillis + " ms");
@@ -133,7 +152,7 @@ public class AsyncProfilerWebEndpointTest {
         Mockito.when(request.getParameter("total")).thenReturn("");
 
         startTime = System.currentTimeMillis();
-        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, request);
+        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, null, request);
         elapsedMillis = System.currentTimeMillis() - startTime;
         assertTrue(elapsedMillis < 100L,
                 "Expected elapsedMillis to be less then 100 ms, but was " + elapsedMillis + " ms");
@@ -153,7 +172,7 @@ public class AsyncProfilerWebEndpointTest {
         Mockito.when(request.getParameter("threads")).thenReturn("");
 
         startTime = System.currentTimeMillis();
-        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, request);
+        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, null, request);
         elapsedMillis = System.currentTimeMillis() - startTime;
         assertTrue(elapsedMillis < 100L,
                 "Expected elapsedMillis to be less then 100 ms, but was " + elapsedMillis + " ms");
@@ -175,7 +194,7 @@ public class AsyncProfilerWebEndpointTest {
         Mockito.when(request.getParameter("total")).thenReturn("");
 
         startTime = System.currentTimeMillis();
-        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, request);
+        responseEntity = asyncProfilerWebEndpoint.executeAndCollectFlamegraph(0L, null, request);
         elapsedMillis = System.currentTimeMillis() - startTime;
         assertTrue(elapsedMillis < 100L,
                 "Expected elapsedMillis to be less then 100 ms, but was " + elapsedMillis + " ms");

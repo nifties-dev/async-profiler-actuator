@@ -6,6 +6,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.boot.actuate.endpoint.web.annotation.RestControllerEndpoint;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -97,6 +98,8 @@ public class AsyncProfilerWebEndpoint {
     private static final Log log = LogFactory.getLog(AsyncProfilerWebEndpoint.class);
 
     private static final String OPERATION_START = "start";
+    public static final String FILE_EXTENSION_HTML = ".html";
+    public static final String FILE_EXTENSION_JFR = ".jfr";
 
     private final AsyncProfiler asyncProfiler;
 
@@ -126,13 +129,17 @@ public class AsyncProfilerWebEndpoint {
     }
 
     @GetMapping("{operation:dump|stop}")
-    public ResponseEntity<?> collectFlameGraph(@PathVariable String operation, WebRequest request) {
+    public ResponseEntity<?> collectFlameGraph(@PathVariable String operation,
+                       @RequestParam(value = "file", required = false) String fileName, WebRequest request) {
         if (log.isDebugEnabled()) {
             log.debug("operation: " + operation);
         }
+        String fileExtension = FILE_EXTENSION_JFR.equalsIgnoreCase(fileName)
+                ? FILE_EXTENSION_JFR : FILE_EXTENSION_HTML;
         File file = null;
         try {
-            file = createTempFile();
+            file = createTempFile(fileExtension);
+
             String command = operation;
             if (request.getParameter("total") != null) {
                 command += ",total";
@@ -140,7 +147,10 @@ public class AsyncProfilerWebEndpoint {
             command += ",file=" + file.getAbsolutePath();
             log.info("command: " + command);
             log.info(asyncProfiler.execute(command));
-            return ResponseEntity.ok().body(new TemporaryFileSystemResource(file));
+            return ResponseEntity.ok()
+                    .contentType(FILE_EXTENSION_HTML.equals(fileExtension)
+                            ? MediaType.TEXT_HTML : MediaType.APPLICATION_OCTET_STREAM)
+                    .body(new TemporaryFileSystemResource(file));
         } catch (IOException | RuntimeException e) {
             log.error("Failed to invoke AsyncProfiler " + operation, e);
             if (file != null) {
@@ -152,7 +162,8 @@ public class AsyncProfilerWebEndpoint {
 
     @GetMapping
     public ResponseEntity<?> executeAndCollectFlamegraph(
-            @RequestParam(value = "duration", required = false, defaultValue = "5") long duration, WebRequest request) {
+            @RequestParam(value = "duration", required = false, defaultValue = "5") long duration,
+            @RequestParam(value = "file", required = false) String fileName, WebRequest request) {
 
         try {
             final long durationMillis = duration * 1000L;
@@ -167,7 +178,7 @@ public class AsyncProfilerWebEndpoint {
                 log.info(asyncProfiler.execute(command));
             }
             Thread.sleep(durationMillis);
-            return collectFlameGraph("stop", request);
+            return collectFlameGraph("stop", fileName, request);
         } catch (IOException | RuntimeException e) {
             log.error("Failed to invoke AsyncProfiler", e);
             return ResponseEntity.internalServerError().body(e.getMessage());
@@ -198,9 +209,9 @@ public class AsyncProfilerWebEndpoint {
         return Stream.of(values).map(v -> key + "=" + v).collect(Collectors.joining(","));
     }
 
-    private File createTempFile() throws IOException {
+    private File createTempFile(String extension) throws IOException {
         String date = DateTimeFormatter.ofPattern("yyyy-MM-dd-HH-mm").format(LocalDateTime.now());
-        File file = File.createTempFile("async-profiler-" + date, ".html");
+        File file = File.createTempFile("async-profiler-" + date, extension);
         file.delete();
         return file;
     }
