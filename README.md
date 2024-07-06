@@ -32,6 +32,14 @@ In short:
  * Make sure _profiler_ actuator endpoint is exposed in _application.yml_ or _.properties_ in _management.endpoints.web.exposure_;
  * Invoke _/actuator/profiler_ via HTTP (again, see demo project's homepage for examples).
 
+## Building
+```
+gradlew build
+```
+```
+gradlew publishToMavenLocal
+```
+
 ## Compatibility
 _async-profiler-actuator_ is built using JDK 17 with Java 8 target compatibility.
 It uses Spring Boot 2 dependency, but _async-profiler-actuator-demo_ tests it using Spring Boot 3 / JDK 17 target.
