@@ -114,7 +114,7 @@ public class AsyncProfilerWebEndpoint {
             log.debug("parameters: " + request.getParameterMap());
         }
 
-        final String command = getCommand(operation, request);
+        final String command = getCommand(operation, null, request);
         log.info("command: " + command);
 
         final String result;
@@ -144,6 +144,9 @@ public class AsyncProfilerWebEndpoint {
             if (request.getParameter("total") != null) {
                 command += ",total";
             }
+            if (FILE_EXTENSION_JFR.equalsIgnoreCase(fileName)) {
+                command += ",jfr";
+            }
             command += ",file=" + file.getAbsolutePath();
             log.info("command: " + command);
             log.info(asyncProfiler.execute(command));
@@ -171,7 +174,8 @@ public class AsyncProfilerWebEndpoint {
                 log.debug("parameters: " + request.getParameterMap());
             }
 
-            final String command = getCommand("start", request);
+            final String command = getCommand("start", fileName, request);
+
 
             if (log.isInfoEnabled()) {
                 log.info("duration: " + durationMillis + ", command: " + command);
@@ -188,15 +192,19 @@ public class AsyncProfilerWebEndpoint {
         }
     }
 
-    private static String getCommand(String operation, WebRequest request) {
+    private static String getCommand(String operation, String fileName, WebRequest request) {
         Objects.requireNonNull(operation);
         String parameters = request.getParameterMap().entrySet().stream()
                 .filter(e -> !"duration".equalsIgnoreCase(e.getKey()))
+                .filter(e -> !"file".equals(e.getKey()))
                 .filter(e -> !"total".equals(e.getKey()))
                 .map(e -> parseParameter(e.getKey(), e.getValue())).collect(Collectors.joining(","));
 
         if (OPERATION_START.equals(operation) && parameters.isEmpty()) {
             parameters = "event=cpu";
+        }
+        if (FILE_EXTENSION_JFR.equalsIgnoreCase(fileName)) {
+            parameters += ",jfrsync";
         }
         return parameters.isEmpty() ? operation : String.join(",", operation, parameters);
     }

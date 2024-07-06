@@ -103,7 +103,7 @@ public class AsyncProfilerWebEndpointTest {
         assertInstanceOf(Resource.class, responseEntity.getBody());
         resource = (Resource)responseEntity.getBody();
         assertTrue(resource.getFile().getName().endsWith(".jfr"));
-        Mockito.verify(asyncProfiler).execute("stop,file=" + resource.getFile().getAbsolutePath());
+        Mockito.verify(asyncProfiler).execute("stop,jfr,file=" + resource.getFile().getAbsolutePath());
     }
 
     @Test
